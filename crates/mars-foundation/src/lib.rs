@@ -4,6 +4,7 @@ pub mod math;
 pub mod prelude;
 pub mod plugin;
 pub mod ids;
+pub mod app;
 
 pub type Result<T> = anyhow::Result<T>;
 

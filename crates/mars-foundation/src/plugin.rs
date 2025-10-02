@@ -1,41 +1,31 @@
 use crate::error::Result;
+use crate::app::{App, Stage};
 
 pub trait Plugin {
     fn name(&self) -> &'static str;
     fn build(&self, app: &mut App) -> Result<()>;
 }
 
-pub struct App {
-    plugins: Vec<Box<dyn Plugin>>,
+pub trait AppExt {
+    fn add_startup_system(&mut self, f: impl FnMut(&mut App) -> Result<()> + 'static) -> &mut Self;
+    fn add_system(&mut self, f: impl FnMut(&mut App) -> Result<()> + 'static) -> &mut Self;
+    fn add_render_system(&mut self, f: impl FnMut(&mut App) -> Result<()> + 'static) -> &mut Self;
 }
 
-impl App {
-    pub fn new() -> Self {
-        Self { plugins: Vec::new() }
-    }
-
-    pub fn add_plugin<P: Plugin + 'static>(&mut self, plugin: P) -> &mut Self {
-        self.plugins.push(Box::new(plugin));
+impl AppExt for App {
+    fn add_startup_system(&mut self, f: impl FnMut(&mut App) -> Result<()> + 'static) -> &mut Self {
+        self.add_system_to_stage(Stage::Startup, f);
         self
     }
 
-    pub fn build(&mut self) -> Result<()> {
-        let plugins = std::mem::take(&mut self.plugins);
-
-        for plugin in &plugins {
-            plugin.build(self)?;
-            tracing::info!("Built plugin: {}", plugin.name());
-        }
-
-        self.plugins = plugins;
-
-        Ok(())
+    fn add_system(&mut self, f: impl FnMut(&mut App) -> Result<()> + 'static) -> &mut Self {
+        self.add_system_to_stage(Stage::Update, f);
+        self
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        self.build()?;
-        tracing::info!("App is running!");
-        Ok(())
+    fn add_render_system(&mut self, f: impl FnMut(&mut App) -> Result<()> + 'static) -> &mut Self {
+        self.add_system_to_stage(Stage::Render, f);
+        self
     }
 }
 
@@ -53,7 +43,7 @@ mod tests {
     #[test]
     fn plugin_adds_and_runs() -> Result<()> {
         let mut app = App::new();
-        app.add_plugin(DummyPlugin).run()?;
+        app.add_plugin(DummyPlugin).run_once()?;
         Ok(())
     }
 }
